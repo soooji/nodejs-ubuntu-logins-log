@@ -28,6 +28,4 @@ function saltHashPassword(password, incomingSolt) {
   return passwordData;
 }
 
-function 
-
 module.exports = { saltHash: saltHashPassword };
