@@ -28,4 +28,5 @@ function saltHashPassword(password, incomingSolt) {
   return passwordData;
 }
 
+console.log(saltHashPassword("123456",".Co6Sj4i"))
 module.exports = { saltHash: saltHashPassword };

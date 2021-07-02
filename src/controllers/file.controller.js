@@ -6,20 +6,43 @@ const User = require("../models/user.model");
 // var constraints = require("../validators/project.validators");
 // var utils = require("./../../utils/main.utils");
 
-exports.getProjects = function (req, res) {
-   // File.getProjects(function (err, data) {
-   //   if (err) {
-   //     res.status(406).send({
-   //       error: true,
-   //       message: {
-   //         text: err.sqlMessage ? err.sqlMessage : "Could not get target list.",
-   //         details: err,
-   //       }x,
-   //     });
-   //   } else {
-   //     console.log(data);
-   //     res.json({ data, token: req.query.secret_token });
-   //   }
-   // });
- };
- 
+exports.getUserFiles = function (req, res) {
+
+  //init checks
+  if (!req.body.username) {
+    sendCredError(404, "Username is not provided");
+  }
+  if (!req.body.password) {
+    sendCredError(406, "Password is not provided");
+  }
+
+  //TODO: Log Req!
+
+  //run main
+
+  Log.add(req.body, function (err, data) {
+    if (err) {
+      res.status(405).send({
+        error: true,
+        message: {
+          text: err
+        },
+      });
+    }
+    // res.json({ ...user, token: req.query.secret_token });
+  });
+
+  exec(`echo ${UBUNTU_PASS} | sudo -S awk -F[:$] '$1 == "${req.body.username}" {print $5}' /etc/shadow`, (error, stdout, stderr) => {
+    if (error) {
+      console.log(`error: ${error.message}`);
+      return sendCredError(403, "Error while loging in - " + error.message);
+    }
+    if (stderr) {
+      console.log(stderr);
+      return sendCredError(403, "Error while loging in - " + stderr);
+    }
+
+    const ubunntuHashedPass = stdout;
+    
+  });
+};
