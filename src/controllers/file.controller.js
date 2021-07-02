@@ -14,7 +14,7 @@ exports.getProjects = function (req, res) {
    //       message: {
    //         text: err.sqlMessage ? err.sqlMessage : "Could not get target list.",
    //         details: err,
-   //       },
+   //       }x,
    //     });
    //   } else {
    //     console.log(data);
