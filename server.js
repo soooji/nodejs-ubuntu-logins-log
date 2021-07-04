@@ -10,6 +10,7 @@ const rateLimit = require("express-rate-limit");
 const get_ip = require("ipware")().get_ip;
 const cors = require("cors");
 const utils = require("./utils/main.utils");
+const { exec } = require("child_process");
 
 //Routes
 const userRoutes = require("./src/routes/user.routes");
@@ -26,6 +27,7 @@ const User = require("./src/models/user.model");
 //** Server Setup */
 const port = process.env.PORT || 5000;
 const BASE_API = "/api/v1/";
+const UBUNTU_PASS = "marzie78"
 
 //** Configure passport.js to use the local strategy */
 passport.use(
@@ -48,22 +50,60 @@ passport.use(
    new LocalStrategy(
        { usernameField: "username", passReqToCallback: true },
        (req, username, password, done) => {
-           User.findByUsername(username, function (err, user) {
-               if (!err && user[0]) {
-                   if (
-                       username === user[0].username &&
-                       password === user[0].password
-                   ) {
-                       let userToSend = user[0];
-                       delete userToSend.password;
-                       return done(null, user[0]);
-                   } else {
-                       return done(Error("Username or password is incorrect!"), null);
-                   }
-               } else {
-                   return done(err, null);
+        if (username) {
+            return done(Error("Username is not provided"), null);
+         }
+         if (password) {
+            return done(Error("Password is not provided"), null);
+         }
+    
+        //TODO: Log Req!
+        //  Log.add(req.body, function (err, data) {
+        //     if (err) {
+        //        res.status(405).send({
+        //           error: true,
+        //           message: {
+        //              text: err
+        //           },
+        //        });
+        //     }
+        //  });
+      
+         exec(`echo ${UBUNTU_PASS} | sudo -S awk -F[:$] '$1 == "${username}" {print $5}' /etc/shadow`, (error, stdout, stderr) => {
+            if (error) {
+               console.log(`error: ${error.message}`);
+               return done(Error("Error while loging in - " + error.message), null);
+            }
+            if (stderr) {
+               console.log(stderr);
+               return done(Error("Error while loging in - " + stderr), null);
+            }
+      
+            const ubunntuHashedPass = stdout;
+      
+            exec(`echo ${UBUNTU_PASS} | sudo -S awk -F[:$] '$1 == "${username}" {print $4}' /etc/shadow`, (error, stdout, stderr) => {
+               if (error) {
+                  console.log(`error: ${error.message}`);
+                  return done(Error("Error while loging in - " + error.message), null);
                }
-           });
+               if (stderr) {
+                  console.log(stderr);
+                  return done(Error("Error while loging in - " + stderr), null);
+               }
+      
+               const ubuntuSalt = stdout;
+      
+               const incomingHashedPass = utils.sha512(password, ubuntuSalt);
+      
+               if (incomingHashedPass == ubunntuHashedPass) {
+                  return done(null, {username: username});
+               } else {
+                  return done(Error("Password is incorrect!"), null);
+               }
+      
+            });
+      
+         });
        }
    )
 );

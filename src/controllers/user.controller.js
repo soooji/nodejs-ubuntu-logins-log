@@ -8,7 +8,7 @@ const { exec } = require("child_process");
 
 const UBUNTU_PASS = "marzie78"
 
-function sendCredError(code, msg) {
+function sendCredError(res, code, msg) {
    res.status(code).send({
       error: true,
       message: {
@@ -17,64 +17,44 @@ function sendCredError(code, msg) {
    });
 }
 
-exports.login = function (req, res) {
-   //init checks
-   if (!req.body.username) {
-      sendCredError(404, "Username is not provided");
-   }
-   if (!req.body.password) {
-      sendCredError(406, "Password is not provided");
-   }
-
-   //TODO: Log Req!
-   
-   //run main
-
-   Log.add(req.body, function (err, data) {
-      if (err) {
-         res.status(405).send({
-            error: true,
-            message: {
-               text: err
-            },
+exports.login = function (req, res, next) {
+   passport.authenticate("local", async (err, user, info) => {
+     try {
+       if (err || !user) {
+         return res.status(401).send({
+           error: true,
+           message: {
+             text: err.message
+               ? err.message
+               : "Username or Password is incorrect",
+             details: null,
+           },
          });
-      }
-      // res.json({ ...user, token: req.query.secret_token });
-   });
-
-   exec(`echo ${UBUNTU_PASS} | sudo -S awk -F[:$] '$1 == "${req.body.username}" {print $5}' /etc/shadow`, (error, stdout, stderr) => {
-      if (error) {
-         console.log(`error: ${error.message}`);
-         return sendCredError(403, "Error while loging in - " + error.message);
-      }
-      if (stderr) {
-         console.log(stderr);
-         return sendCredError(403, "Error while loging in - " + stderr);
-      }
-
-      const ubunntuHashedPass = stdout;
-
-      exec(`echo ${UBUNTU_PASS} | sudo -S awk -F[:$] '$1 == "${req.body.username}" {print $4}' /etc/shadow`, (error, stdout, stderr) => {
-         if (error) {
-            console.log(`error: ${error.message}`);
-            return sendCredError(403, "Error while loging in - " + error.message);
-         }
-         if (stderr) {
-            console.log(stderr);
-            return sendCredError(403, "Error while loging in - " + stderr);
-         }
-
-         const ubuntuSalt = stdout;
-
-         const incomingHashedPass = sha512(req.body.password, ubuntuSalt);
-
-         if (incomingHashedPass == ubunntuHashedPass) {
-            return res.send("Successfull Login!")
-         } else {
-            return sendCredError(404, "Password is incorrect!");
-         }
-
-      });
-
-   });
-};
+       }
+       req.login(user, { session: false }, async (error) => {
+         if (error) return next(error);
+ 
+const body = { id: user.id, username: user.username };
+         const token = jwt.sign({ user: body }, "TOP_SECRET");
+ 
+         const userToSend = { ...user };
+         delete userToSend.password;
+         delete userToSend.salt;
+ 
+         return res.json({ ...userToSend, token });
+       });
+     } catch (error) {
+       res.status(401).send({
+         error: true,
+         message: {
+           text: error.message
+             ? error.message
+             : "Username or Password is incorrect",
+           details: null,
+         },
+       });
+       // return next(error);
+     }
+   })(req, res, next);
+ };
+ 
